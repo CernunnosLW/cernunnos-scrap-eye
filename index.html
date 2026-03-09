@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#1C0800"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <title>Cernunnos Scrap Eye</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#DFC88E;font-family:'Lora','Georgia',serif;}
+    #root{max-width:480px;margin:0 auto;min-height:100vh;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ══════════════════════════════════════════════════════════
+   TASK PRESETS & PROJECT DATABASE
+══════════════════════════════════════════════════════════ */
+const TASK_PRESETS = [
+  { name:"Cut", icon:"✂️", guidance:"Sharp knife, steel rule, cutting mat. Change blades often — a dull blade tears rather than slices cleanly." },
+  { name:"Skive", icon:"🔪", guidance:"Work on marble or glass for best control. Aim for a feathered taper, not a blunt step. Keep the blade razor-sharp." },
+  { name:"Mark", icon:"📐", guidance:"Wing divider or stitching groover for consistent lines parallel to the edge. Check alignment before committing." },
+  { name:"Punch Holes", icon:"🔨", guidance:"Pricking iron first, then awl to open each hole. Work on poundo board — foam lets holes drift off-angle." },
+  { name:"Glue", icon:"🧴", guidance:"Roughen both surfaces. Let contact cement flash off until tacky before pressing — it bonds on first touch." },
+  { name:"Stitch", icon:"🧵", guidance:"Saddle stitch locks each stitch — far stronger than machine. Consistent tension matters more than speed." },
+  { name:"Dye", icon:"🎨", guidance:"Case veg tan before dyeing for even absorption. Build colour in thin layers, seal with resist coat afterwards." },
+  { name:"Edge Coat", icon:"〰️", guidance:"Sand through 120→240 grit first. 2–3 thin coats of edge paint, letting each dry. Buff with canvas for gloss." },
+  { name:"Burnish", icon:"🪵", guidance:"Dampen edge with water or gum tragacanth. Rub firmly with a wooden slicker — friction seals the fibres." },
+  { name:"Condition", icon:"✨", guidance:"Thin coats only, let absorb fully before buffing. One coat is usually enough for new work." },
+  { name:"Hardware", icon:"🔩", guidance:"Test fit before setting permanently. Always set on a solid steel block, never on wood." },
+  { name:"Final Check", icon:"☑️", guidance:"Stitches, edges, hardware, finish, closures — inspect under raking light. This step is most often rushed." },
+];
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+const fmtDate = ts => new Date(ts).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+
+/* ══════════════════════════════════════════════════════════
+   DESIGN SYSTEM
+══════════════════════════════════════════════════════════ */
+const C = {
+  bg:"#E9D8A6", card:"#FAF3DF", cardDeep:"#F5EBD0", input:"#FFFDF4",
+  border:"#BF9848", borderSoft:"#D4B870",
+  leather:"#1C0800", oxblood:"#4A1200", sienna:"#7A3810", tan:"#A06528",
+  gold:"#8A6C10", burnished:"#B8921C",
+  ink:"#140400", bark:"#5A2E10", faded:"#8A5C30",
+  sage:"#1A3D22", sageLight:"#2A5C34", crimson:"#641414", amber:"#8A5A00",
+  overlay:"rgba(20,4,0,0.68)",
+};
+
+/* ══════════════════════════════════════════════════════════
+   CL STAG LOGO
+══════════════════════════════════════════════════════════ */
+const CLLogo = ({ size = 48, color = "#C4A030" }) => (
+  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+    <path d="M50 56 C48 46 44 34 37 20 C33 12 28 7 22 4" stroke={color} strokeWidth="4" strokeLinecap="round"/>
+    <path d="M22 4 C17 2 11 4 7 8" stroke={color} strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M25 10 C20 7 16 7 13 10" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    <path d="M40 30 C34 25 26 24 19 27" stroke={color} strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M46 43 C39 39 32 40 27 45" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    <path d="M70 56 C72 46 76 34 83 20 C87 12 92 7 98 4" stroke={color} strokeWidth="4" strokeLinecap="round"/>
+    <path d="M98 4 C103 2 109 4 113 8" stroke={color} strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M95 10 C100 7 104 7 107 10" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    <path d="M80 30 C86 25 94 24 101 27" stroke={color} strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M74 43 C81 39 88 40 93 45" stroke={color} strokeWidth="3" strokeLinecap="round"/>
+    <circle cx="60" cy="82" r="31" stroke={color} strokeWidth="4"/>
+    <path d="M31 66 C25 58 27 50 34 55" stroke={color} strokeWidth="3.5" strokeLinecap="round"/>
+    <path d="M89 66 C95 58 93 50 86 55" stroke={color} strokeWidth="3.5" strokeLinecap="round"/>
+    <ellipse cx="46" cy="78" rx="5" ry="3.5" fill={color}/>
+    <ellipse cx="74" cy="78" rx="5" ry="3.5" fill={color}/>
+    <path d="M60 67 C51 67 43 72 43 82 C43 92 51 97 60 97" stroke={color} strokeWidth="4.5" strokeLinecap="round"/>
+    <path d="M65 67 L65 97 L77 97" stroke={color} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+/* ══════════════════════════════════════════════════════════
+   CLAUDE AI PROMPT
+══════════════════════════════════════════════════════════ */
+const buildPrompt = (materials) => {
+  const textMaterials = materials.filter(m => !m.photoBase64).map((m, i) =>
+    `Material ${i + 1} (described): ${m.description || "leather piece"}`
+  ).join("\n");
+  const photoMaterials = materials.filter(m => m.photoBase64).map((m, i) =>
+    `Photo ${i + 1}${m.description ? ` (described as: ${m.description})` : ""}`
+  ).join("\n");
+
+  return `You are an expert leatherworker with 20 years of experience. A maker has shown you their available leather materials${photoMaterials ? ` in photos (${photoMaterials})` : ""}${textMaterials ? ` and described some pieces in text:\n${textMaterials}` : ""}.
+
+Your job is to suggest creative, practical projects they could make from these specific materials — including projects that cleverly combine multiple pieces.
+
+Return ONLY valid JSON — no preamble, no markdown, no backticks:
+
+{
+  "materials_read": [
+    {
+      "label": "<short label like 'Piece A' or 'Photo 1'>",
+      "description": "<what you see or were told: leather type, colour, estimated size, thickness if visible, quality notes>",
+      "best_for": "<what this piece is best suited for in one short phrase>"
+    }
+  ],
+  "projects": [
+    {
+      "name": "<project name>",
+      "emoji": "<single relevant emoji>",
+      "headline": "<one punchy sentence selling this idea>",
+      "uses_materials": ["<label of material used, e.g. 'Piece A'>"],
+      "skill_level": "<Beginner | Intermediate | Advanced>",
+      "estimated_time": "<e.g. '1–2 hours'>",
+      "sells_for": "<realistic UK price range e.g. '£25–£45'>",
+      "why_these_materials": "<one sentence on why this combination or piece works for this project>",
+      "key_steps": ["<step 1>", "<step 2>", "<step 3>", "<step 4>", "<step 5>"],
+      "pro_tip": "<one actionable tip from an expert>",
+      "difficulty_notes": "<honest note on the trickiest part>"
+    }
+  ],
+  "makers_note": "<one warm, encouraging sentence about the quality or potential of what you see overall>"
+}
+
+Suggest between 3 and 6 projects. Prioritise projects that:
+1. Actually fit the material sizes you can see or that were described
+2. Use materials in combination where that makes sense
+3. Range from quick wins (30 min) to a satisfying longer build
+4. Are realistic for a home workshop maker
+
+Be specific about which material goes where. If you can see sizes, use them. If not, work from what's described.`;
+};
+
+/* ══════════════════════════════════════════════════════════
+   PRIMITIVE UI COMPONENTS
+══════════════════════════════════════════════════════════ */
+const Btn = ({ children, onClick, variant = "primary", small, style, disabled }) => {
+  const base = { border:"none", cursor:disabled?"not-allowed":"pointer", fontFamily:"inherit", borderRadius:8, fontWeight:700, letterSpacing:"0.03em", transition:"all 0.18s", fontSize:small?12:14, padding:small?"7px 14px":"13px 22px", opacity:disabled?0.4:1 };
+  const v = {
+    primary: { background:`linear-gradient(160deg,${C.oxblood},${C.leather})`, color:"#FAF0D8", boxShadow:`0 3px 14px rgba(20,4,0,0.28),inset 0 1px 0 rgba(255,255,255,0.08)` },
+    secondary: { background:"transparent", border:`1px solid ${C.border}`, color:C.ink },
+    ghost: { background:"transparent", color:C.sienna, border:"none" },
+    gold: { background:`linear-gradient(160deg,${C.burnished},${C.gold})`, color:"#FAF0D8", boxShadow:`0 3px 14px rgba(20,4,0,0.2)` },
+    danger: { background:`linear-gradient(160deg,${C.crimson},#3A0A0A)`, color:"#FAF0D8" },
+    sage: { background:`linear-gradient(160deg,${C.sageLight},${C.sage})`, color:"#E8F5EC", boxShadow:`0 3px 10px rgba(20,4,0,0.2)` },
+  };
+  return <button onClick={onClick} disabled={disabled} style={{ ...base, ...v[variant], ...style }}>{children}</button>;
+};
+
+const Card = ({ children, style, onClick }) => (
+  <div onClick={onClick} style={{ background:C.card, border:`1px solid ${C.borderSoft}`, borderRadius:14, padding:16, marginBottom:12, boxShadow:`0 2px 14px rgba(20,4,0,0.07),inset 0 1px 0 rgba(255,255,255,0.6)`, cursor:onClick?"pointer":"default", ...style }}>{children}</div>
+);
+
+const Badge = ({ label, color = C.tan }) => (
+  <span style={{ display:"inline-block", fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:20, background:color+"22", color, border:`1px solid ${color}44`, letterSpacing:"0.05em", textTransform:"uppercase" }}>{label}</span>
+);
+
+const Overlay = ({ children, onClose }) => (
+  <div onClick={onClose} style={{ position:"fixed", inset:0, background:C.overlay, zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+    <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:"22px 22px 0 0", width:"100%", maxWidth:480, maxHeight:"92vh", overflowY:"auto", padding:"26px 20px 40px", boxShadow:`0 -10px 50px rgba(20,4,0,0.3)` }}>{children}</div>
+  </div>
+);
+
+const ModalTitle = ({ children }) => (
+  <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, fontWeight:700, color:C.leather, marginBottom:16, letterSpacing:"-0.01em" }}>{children}</div>
+);
+
+const SectionHeading = ({ children, sub }) => (
+  <div style={{ marginBottom:16 }}>
+    <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, fontWeight:700, color:C.ink, letterSpacing:"-0.01em" }}>{children}</div>
+    {sub && <div style={{ fontSize:12, color:C.bark, marginTop:3, lineHeight:1.5 }}>{sub}</div>}
+  </div>
+);
+
+const Divider = ({ label }) => (
+  <div style={{ display:"flex", alignItems:"center", gap:10, margin:"16px 0 12px" }}>
+    <div style={{ flex:1, height:"0.5px", background:C.borderSoft }}/>
+    {label && <><div style={{ fontSize:10, color:C.faded, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", whiteSpace:"nowrap" }}>{label}</div><div style={{ flex:1, height:"0.5px", background:C.borderSoft }}/></>}
+  </div>
+);
+
+const EmptyState = ({ icon, heading, sub }) => (
+  <div style={{ textAlign:"center", padding:"56px 24px", color:C.bark }}>
+    <div style={{ fontSize:44, marginBottom:14, opacity:0.6 }}>{icon}</div>
+    <div style={{ fontSize:19, fontFamily:"'Cormorant Garamond',serif", fontWeight:700, marginBottom:8, color:C.sienna }}>{heading}</div>
+    <div style={{ fontSize:13, lineHeight:1.65 }}>{sub}</div>
+  </div>
+);
+
+/* ══════════════════════════════════════════════════════════
+   SPLASH SCREEN
+══════════════════════════════════════════════════════════ */
+function SplashScreen({ onDone }) {
+  const [fading, setFading] = useState(false);
+  useEffect(() => {
+    const t1 = setTimeout(() => setFading(true), 1900);
+    const t2 = setTimeout(() => onDone(), 2500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  return (
+    <div style={{ position:"fixed", inset:0, background:`linear-gradient(160deg,${C.leather} 0%,${C.oxblood} 55%,#2A0800 100%)`, zIndex:9999, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:18, transition:"opacity 0.55s ease", opacity:fading?0:1, pointerEvents:"none" }}>
+      <CLLogo size={118} color={C.burnished}/>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:800, color:"#FAF0D8", letterSpacing:"0.14em", textTransform:"uppercase", lineHeight:1 }}>Cernunnos</div>
+        <div style={{ fontSize:11, color:`${C.burnished}BB`, letterSpacing:"0.22em", textTransform:"uppercase", fontWeight:600, marginTop:5 }}>Leatherworks</div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, width:160, marginTop:4 }}>
+        <div style={{ flex:1, height:0.5, background:`${C.burnished}44` }}/>
+        <div style={{ fontSize:9, color:`${C.burnished}66`, letterSpacing:"0.18em", textTransform:"uppercase", fontWeight:700, whiteSpace:"nowrap" }}>The Scrap Eye</div>
+        <div style={{ flex:1, height:0.5, background:`${C.burnished}44` }}/>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   SCAN ANIMATION
+══════════════════════════════════════════════════════════ */
+function ScanOverlay() {
+  const [pos, setPos] = useState(0);
+  const msgs = ["Reading grain patterns…", "Estimating dimensions…", "Identifying leather types…", "Thinking of project ideas…", "Almost there…"];
+  const [mIdx, setMIdx] = useState(0);
+  useEffect(() => {
+    const a = setInterval(() => setPos(p => (p + 1.2) % 100), 18);
+    const m = setInterval(() => setMIdx(i => (i + 1) % msgs.length), 2000);
+    return () => { clearInterval(a); clearInterval(m); };
+  }, []);
+  return (
+    <div style={{ position:"absolute", inset:0, borderRadius:12, overflow:"hidden", background:"rgba(20,4,0,0.22)", display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div style={{ position:"absolute", left:0, right:0, top:`${pos}%`, height:2, background:`linear-gradient(90deg,transparent,${C.burnished}CC,transparent)`, boxShadow:`0 0 12px ${C.burnished}88` }}/>
+      {[[{top:8,left:8},{borderTop:`2px solid ${C.burnished}`,borderLeft:`2px solid ${C.burnished}`}],[{top:8,right:8},{borderTop:`2px solid ${C.burnished}`,borderRight:`2px solid ${C.burnished}`}],[{bottom:8,left:8},{borderBottom:`2px solid ${C.burnished}`,borderLeft:`2px solid ${C.burnished}`}],[{bottom:8,right:8},{borderBottom:`2px solid ${C.burnished}`,borderRight:`2px solid ${C.burnished}`}]].map(([p,b],i)=>(
+        <div key={i} style={{ position:"absolute", ...p, width:14, height:14, ...b }}/>
+      ))}
+      <div style={{ padding:"8px 0 10px", textAlign:"center", fontSize:10, fontWeight:700, color:"#FAF0D8CC", letterSpacing:"0.08em", textTransform:"uppercase", textShadow:"0 1px 4px rgba(0,0,0,0.6)" }}>{msgs[mIdx]}</div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   MATERIAL CARD (in session builder)
+══════════════════════════════════════════════════════════ */
+function MaterialCard({ mat, index, onUpdate, onDelete }) {
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.borderSoft}`, borderRadius:14, marginBottom:12, overflow:"hidden", boxShadow:`0 2px 12px rgba(20,4,0,0.07),inset 0 1px 0 rgba(255,255,255,0.55)` }}>
+      <div style={{ display:"flex", gap:0 }}>
+        {/* Photo preview or placeholder */}
+        <div style={{ width:88, flexShrink:0, position:"relative", background:C.cardDeep, borderRight:`1px solid ${C.borderSoft}44` }}>
+          {mat.photoDataUrl ? (
+            <img src={mat.photoDataUrl} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", minHeight:88 }}/>
+          ) : (
+            <div style={{ height:88, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4 }}>
+              <div style={{ fontSize:24, opacity:0.4 }}>🪡</div>
+              <div style={{ fontSize:9, color:C.faded, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" }}>Text only</div>
+            </div>
+          )}
+          {/* Material label badge */}
+          <div style={{ position:"absolute", top:6, left:6, background:"rgba(20,4,0,0.7)", borderRadius:4, padding:"2px 6px", fontSize:9, fontWeight:800, color:"#FAF0D8", letterSpacing:"0.06em" }}>#{index + 1}</div>
+        </div>
+        {/* Description + controls */}
+        <div style={{ flex:1, padding:"12px 13px" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:C.faded, textTransform:"uppercase", letterSpacing:"0.08em" }}>Material {index + 1}</div>
+            <button onClick={() => onDelete(mat.id)} style={{ border:"none", background:"transparent", color:C.crimson, cursor:"pointer", fontSize:17, lineHeight:1, padding:0 }}>×</button>
+          </div>
+          <textarea
+            value={mat.description}
+            onChange={e => onUpdate(mat.id, { description: e.target.value })}
+            placeholder={mat.photoDataUrl ? "Describe what you see — size, type, thickness…" : "Describe this material — e.g. '14×9cm veg tan, 2mm, natural'"}
+            rows={3}
+            style={{ width:"100%", boxSizing:"border-box", border:`1px solid ${C.borderSoft}`, borderRadius:8, padding:"8px 10px", fontFamily:"inherit", fontSize:12, color:C.ink, background:C.input, resize:"none", lineHeight:1.6 }}
+          />
+          {mat.photoDataUrl && (
+            <button onClick={() => onUpdate(mat.id, { photoDataUrl:null, photoBase64:null, photoMediaType:null })} style={{ border:"none", background:"transparent", color:C.faded, cursor:"pointer", fontSize:10, fontWeight:700, fontFamily:"inherit", letterSpacing:"0.04em", padding:0, marginTop:4 }}>Remove photo</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   SESSION BUILDER (main compose screen)
+══════════════════════════════════════════════════════════ */
+function SessionBuilder({ materials, onAddPhoto, onAddText, onUpdate, onDelete, onAnalyse, analysing }) {
+  const hasAny = materials.length > 0;
+  const hasDesc = materials.some(m => m.description.trim().length > 2);
+  const canAnalyse = hasAny && hasDesc;
+
+  return (
+    <div>
+      <SectionHeading
+        children="What have you got?"
+        sub="Add your leather pieces — photos, descriptions, or both. Mix and match however works."
+      />
+
+      {/* Add buttons */}
+      <div style={{ display:"flex", gap:8, marginBottom:18 }}>
+        <button onClick={onAddPhoto} style={{ flex:1, border:`2px dashed ${C.borderSoft}`, borderRadius:12, padding:"14px 8px", cursor:"pointer", background:"transparent", fontFamily:"inherit", textAlign:"center", transition:"all 0.2s" }}>
+          <div style={{ fontSize:24, marginBottom:5 }}>📷</div>
+          <div style={{ fontSize:12, fontWeight:700, color:C.ink }}>Add Photo</div>
+          <div style={{ fontSize:10, color:C.faded, marginTop:2 }}>Camera or gallery</div>
+        </button>
+        <button onClick={onAddText} style={{ flex:1, border:`2px dashed ${C.borderSoft}`, borderRadius:12, padding:"14px 8px", cursor:"pointer", background:"transparent", fontFamily:"inherit", textAlign:"center", transition:"all 0.2s" }}>
+          <div style={{ fontSize:24, marginBottom:5 }}>✏️</div>
+          <div style={{ fontSize:12, fontWeight:700, color:C.ink }}>Describe a Piece</div>
+          <div style={{ fontSize:10, color:C.faded, marginTop:2 }}>No photo needed</div>
+        </button>
+      </div>
+
+      {/* Material list */}
+      {materials.length === 0 ? (
+        <EmptyState icon="🪡" heading="No materials added yet" sub={`Add a photo of your leather pile, describe pieces by hand, or do both — then tap "What can I make?" to get ideas.`}/>
+      ) : (
+        materials.map((m, i) => (
+          <MaterialCard key={m.id} mat={m} index={i} onUpdate={onUpdate} onDelete={onDelete}/>
+        ))
+      )}
+
+      {/* Analyse button */}
+      {hasAny && (
+        <div style={{ marginTop:8 }}>
+          {!hasDesc && (
+            <div style={{ fontSize:12, color:C.amber, fontWeight:600, textAlign:"center", marginBottom:10 }}>
+              Add a description to at least one material to continue
+            </div>
+          )}
+          <Btn
+            onClick={onAnalyse}
+            disabled={!canAnalyse || analysing}
+            style={{ width:"100%", fontSize:16, padding:"15px 0" }}
+            variant="gold"
+          >
+            {analysing ? "Reading your leather…" : `✦ What can I make from ${materials.length} piece${materials.length !== 1 ? "s" : ""}?`}
+          </Btn>
+          {analysing && (
+            <div style={{ textAlign:"center", fontSize:11, color:C.bark, marginTop:8 }}>
+              Claude is examining your materials and thinking up ideas…
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESULTS VIEW
+══════════════════════════════════════════════════════════ */
+function ResultsView({ result, materials, onReset, onViewProject }) {
+  const skillColor = { Beginner:"#2D5C2A", Intermediate:"#6B4C10", Advanced:"#6A1818" };
+
+  return (
+    <div>
+      {/* Materials summary */}
+      <div style={{ background:`linear-gradient(145deg,${C.leather},${C.oxblood})`, borderRadius:16, padding:"18px 18px 16px", marginBottom:18, boxShadow:`0 6px 28px rgba(20,4,0,0.22)` }}>
+        <div style={{ fontSize:10, color:`${C.burnished}BB`, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Materials read</div>
+        {result.materials_read?.map((m, i) => (
+          <div key={i} style={{ display:"flex", gap:10, marginBottom:i < result.materials_read.length - 1 ? 10 : 0, alignItems:"flex-start" }}>
+            {materials[i]?.photoDataUrl && (
+              <img src={materials[i].photoDataUrl} alt="" style={{ width:44, height:44, objectFit:"cover", borderRadius:6, flexShrink:0, border:"1px solid rgba(255,240,216,0.15)" }}/>
+            )}
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:"#FAF0D8" }}>{m.label}</div>
+              <div style={{ fontSize:11, color:"#FAF0D8AA", marginTop:2, lineHeight:1.5 }}>{m.description}</div>
+              {m.best_for && <div style={{ fontSize:10, color:C.burnished, marginTop:3, fontWeight:600 }}>Best for: {m.best_for}</div>}
+            </div>
+          </div>
+        ))}
+        {result.makers_note && (
+          <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(255,240,216,0.12)", fontSize:12, color:"#FAF0D8CC", fontStyle:"italic", lineHeight:1.6 }}>{result.makers_note}</div>
+        )}
+      </div>
+
+      <SectionHeading children={`${result.projects?.length || 0} Project Ideas`} sub="Tailored to your exact materials — tap any card for the full build guide."/>
+
+      {result.projects?.map((proj, i) => (
+        <div key={i} onClick={() => onViewProject(proj, result.materials_read)} style={{ background:C.card, border:`1px solid ${C.borderSoft}`, borderRadius:14, padding:"15px 16px", marginBottom:12, cursor:"pointer", boxShadow:`0 2px 14px rgba(20,4,0,0.07),inset 0 1px 0 rgba(255,255,255,0.55)`, transition:"transform 0.15s" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:10 }}>
+            <div style={{ fontSize:32, flexShrink:0, lineHeight:1, marginTop:2 }}>{proj.emoji}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:19, fontWeight:700, color:C.ink, lineHeight:1.1 }}>{proj.name}</div>
+              <div style={{ fontSize:12, color:C.bark, marginTop:4, lineHeight:1.5 }}>{proj.headline}</div>
+            </div>
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginBottom:10 }}>
+            <Badge label={proj.skill_level || "Beginner"} color={skillColor[proj.skill_level] || C.sage}/>
+            {proj.estimated_time && <Badge label={`⏱ ${proj.estimated_time}`} color={C.sienna}/>}
+            {proj.sells_for && <Badge label={`💰 ${proj.sells_for}`} color={C.burnished}/>}
+          </div>
+          {proj.uses_materials?.length > 0 && (
+            <div style={{ fontSize:11, color:C.tan, fontWeight:600, marginBottom:8 }}>
+              Uses: {proj.uses_materials.join(", ")}
+            </div>
+          )}
+          <div style={{ fontSize:12, color:C.bark, lineHeight:1.6, borderTop:`1px solid ${C.borderSoft}44`, paddingTop:10 }}>{proj.why_these_materials}</div>
+          <div style={{ textAlign:"right", marginTop:8, fontSize:12, color:C.bark, fontWeight:600 }}>Full guide →</div>
+        </div>
+      ))}
+
+      <Divider/>
+      <Btn onClick={onReset} variant="secondary" style={{ width:"100%" }}>↩ Start a new session</Btn>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   PROJECT DETAIL VIEW
+══════════════════════════════════════════════════════════ */
+function ProjectDetailView({ proj, materialsRead, onClose }) {
+  const skillColor = { Beginner:"#2D5C2A", Intermediate:"#6B4C10", Advanced:"#6A1818" };
+  return (
+    <div>
+      <button onClick={onClose} style={{ border:"none", background:"transparent", fontSize:14, cursor:"pointer", color:C.sienna, marginBottom:20, display:"flex", alignItems:"center", gap:6, fontFamily:"inherit", fontWeight:700 }}>← Back to Ideas</button>
+
+      {/* Hero */}
+      <div style={{ background:`linear-gradient(145deg,${C.leather},${C.oxblood})`, borderRadius:18, padding:"22px 20px", marginBottom:18, boxShadow:`0 8px 32px rgba(20,4,0,0.28)` }}>
+        <div style={{ fontSize:48, marginBottom:10 }}>{proj.emoji}</div>
+        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:800, color:"#FAF0D8", marginBottom:6 }}>{proj.name}</div>
+        <div style={{ fontSize:13, color:"#FAF0D8CC", marginBottom:16, lineHeight:1.6 }}>{proj.headline}</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {[{t:proj.skill_level,c:skillColor[proj.skill_level]||C.sage},{t:`⏱ ${proj.estimated_time}`,c:"#FAF0D814"},{t:`💰 ${proj.sells_for}`,c:C.burnished+"33"}].map((x,i)=>(
+            <span key={i} style={{ background:x.c+"33", border:`1px solid rgba(255,240,216,0.15)`, borderRadius:20, padding:"5px 13px", fontSize:11, fontWeight:700, color:"#FAF0D8" }}>{x.t}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Why these materials */}
+      <Card style={{ borderLeft:`3px solid ${C.burnished}55` }}>
+        <div style={{ fontSize:10, fontWeight:800, color:C.burnished, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Why this works</div>
+        <div style={{ fontSize:13, color:C.ink, lineHeight:1.75 }}>{proj.why_these_materials}</div>
+        {proj.uses_materials?.length > 0 && (
+          <div style={{ marginTop:10, fontSize:11, color:C.tan, fontWeight:700 }}>Materials used: {proj.uses_materials.join(", ")}</div>
+        )}
+      </Card>
+
+      {/* Steps */}
+      {proj.key_steps?.length > 0 && (
+        <Card>
+          <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:15, fontWeight:700, color:C.ink, marginBottom:12 }}>🛠 Key Steps</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {proj.key_steps.map((step, i) => {
+              const preset = TASK_PRESETS.find(p => step.toLowerCase().includes(p.name.toLowerCase()));
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 10px", background:C.cardDeep, borderRadius:9 }}>
+                  <div style={{ fontSize:10, fontWeight:800, color:C.faded, width:16, textAlign:"right", marginTop:3, flexShrink:0 }}>{i+1}</div>
+                  <div style={{ fontSize:18, flexShrink:0, marginTop:1 }}>{preset?.icon || "🔧"}</div>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.ink }}>{step}</div>
+                    {preset && <div style={{ fontSize:11, color:C.bark, marginTop:3, lineHeight:1.6 }}>{preset.guidance}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Pro tip */}
+      {proj.pro_tip && (
+        <div style={{ background:C.burnished+"14", border:`1px solid ${C.burnished}44`, borderRadius:14, padding:"16px", marginBottom:12 }}>
+          <div style={{ fontSize:10, fontWeight:800, color:C.burnished, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Pro Tip</div>
+          <div style={{ fontSize:13, color:C.ink, lineHeight:1.75 }}>{proj.pro_tip}</div>
+        </div>
+      )}
+
+      {/* Difficulty notes */}
+      {proj.difficulty_notes && (
+        <Card style={{ borderLeft:`3px solid ${C.amber}66` }}>
+          <div style={{ fontSize:10, fontWeight:800, color:C.amber, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Watch out for</div>
+          <div style={{ fontSize:13, color:C.ink, lineHeight:1.75 }}>{proj.difficulty_notes}</div>
+        </Card>
+      )}
+
+      <Btn onClick={onClose} variant="secondary" style={{ width:"100%", marginTop:8 }}>← Back to Ideas</Btn>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   ROOT APP
+══════════════════════════════════════════════════════════ */
+function ScrapEye() {
+  const [splashDone, setSplashDone] = useState(false);
+  const [phase, setPhase] = useState("build"); // build | results | project
+  const [materials, setMaterials] = useState([]);
+  const [analysing, setAnalysing] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [viewingProject, setViewingProject] = useState(null);
+  const [analysisImages, setAnalysisImages] = useState([]);
+  const fileRef = useRef(null);
+  const pendingAction = useRef(null);
+
+  /* ── Material management ── */
+  const addTextMaterial = () => {
+    setMaterials(prev => [...prev, { id:uid(), description:"", photoDataUrl:null, photoBase64:null, photoMediaType:null }]);
+  };
+
+  const triggerPhotoAdd = () => {
+    pendingAction.current = "add";
+    fileRef.current?.click();
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      const base64 = dataUrl.split(",")[1];
+      setMaterials(prev => [...prev, {
+        id: uid(),
+        description: "",
+        photoDataUrl: dataUrl,
+        photoBase64: base64,
+        photoMediaType: file.type,
+      }]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const updateMaterial = (id, updates) => setMaterials(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+  const deleteMaterial = (id) => setMaterials(prev => prev.filter(m => m.id !== id));
+
+  /* ── Analyse ── */
+  const analyse = async () => {
+    if (analysing) return;
+    setAnalysing(true);
+    setError(null);
+    try {
+      const content = [];
+      let photoIndex = 0;
+      for (const mat of materials) {
+        if (mat.photoBase64) {
+          content.push({ type:"image", source:{ type:"base64", media_type:mat.photoMediaType, data:mat.photoBase64 } });
+          photoIndex++;
+        }
+      }
+      content.push({ type:"text", text:buildPrompt(materials) });
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          messages: [{ role:"user", content }]
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message || "API error");
+      const text = data.content.map(c => c.text || "").join("");
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setResult(parsed);
+      setPhase("results");
+    } catch (err) {
+      setError("Couldn't analyse your materials. Check your internet connection and try again.");
+    } finally {
+      setAnalysing(false);
+    }
+  };
+
+  const reset = () => {
+    setPhase("build");
+    setMaterials([]);
+    setResult(null);
+    setError(null);
+    setViewingProject(null);
+  };
+
+  if (!splashDone) return <SplashScreen onDone={() => setSplashDone(true)}/>;
+
+  return (
+    <div style={{ fontFamily:"'Lora','Georgia',serif", background:C.bg, minHeight:"100vh", maxWidth:480, margin:"0 auto", paddingBottom:40 }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700;800&family=Lora:wght@400;500;600&display=swap');
+        *{box-sizing:border-box;} body{margin:0;background:#DFC88E;}
+        input,textarea,select{outline:none;font-family:inherit;}
+        button:active{transform:scale(0.97);}
+        ::placeholder{color:#8A5C3099;}
+        ::-webkit-scrollbar{width:3px;height:3px;}
+        ::-webkit-scrollbar-thumb{background:#D4B870;border-radius:4px;}
+      `}</style>
+
+      {/* Hidden file input */}
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display:"none" }} onChange={handleFileChange}/>
+
+      {/* Header */}
+      <div style={{ background:`linear-gradient(160deg,${C.leather} 0%,${C.oxblood} 100%)`, padding:"12px 18px", position:"sticky", top:0, zIndex:40, borderBottom:`1px solid ${C.burnished}44` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <CLLogo size={40} color={C.burnished}/>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:16, fontWeight:800, color:"#FAF0D8", letterSpacing:"0.05em", textTransform:"uppercase", lineHeight:1 }}>Cernunnos</div>
+            <div style={{ fontSize:8, color:`${C.burnished}CC`, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:700, marginTop:2 }}>Leatherworks · The Scrap Eye</div>
+          </div>
+          {phase !== "build" && (
+            <button onClick={reset} style={{ border:`1px solid rgba(196,160,48,0.3)`, background:"rgba(250,240,216,0.08)", borderRadius:20, padding:"5px 12px", cursor:"pointer", fontSize:11, color:"#FAF0D8AA", fontWeight:700, fontFamily:"inherit" }}>New session</button>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ padding:"18px 16px 0" }}>
+        {phase === "build" && (
+          <SessionBuilder
+            materials={materials}
+            onAddPhoto={triggerPhotoAdd}
+            onAddText={addTextMaterial}
+            onUpdate={updateMaterial}
+            onDelete={deleteMaterial}
+            onAnalyse={analyse}
+            analysing={analysing}
+          />
+        )}
+
+        {phase === "results" && !viewingProject && result && (
+          <ResultsView
+            result={result}
+            materials={materials}
+            onReset={reset}
+            onViewProject={(proj, mats) => setViewingProject({ proj, mats })}
+          />
+        )}
+
+        {phase === "results" && viewingProject && (
+          <ProjectDetailView
+            proj={viewingProject.proj}
+            materialsRead={viewingProject.mats}
+            onClose={() => setViewingProject(null)}
+          />
+        )}
+
+        {error && (
+          <div style={{ background:C.crimson+"14", border:`1px solid ${C.crimson}44`, borderRadius:12, padding:"14px 16px", marginTop:16 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.crimson, marginBottom:6 }}>Analysis failed</div>
+            <div style={{ fontSize:12, color:C.bark, lineHeight:1.6, marginBottom:12 }}>{error}</div>
+            <Btn small onClick={() => setError(null)} variant="secondary">Dismiss</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  React.createElement(ScrapEye)
+);
+  </script>
+</body>
+</html>
